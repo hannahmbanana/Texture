@@ -63,7 +63,7 @@ NSInteger const ASDefaultDrawingPriority = ASDefaultTransactionPriority;
 // We have to forward declare the protocol as this place otherwise it will not compile compiling with an Base SDK < iOS 10
 @protocol CALayerDelegate;
 
-@interface ASDisplayNode () <UIGestureRecognizerDelegate, _ASDisplayLayerDelegate>
+@interface ASDisplayNode () <UIGestureRecognizerDelegate, CALayerDelegate, _ASDisplayLayerDelegate>
 
 /**
  * See ASDisplayNodeInternal.h for ivars

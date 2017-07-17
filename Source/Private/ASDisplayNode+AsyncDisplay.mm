@@ -72,7 +72,7 @@
   // Capture these outside the display block so they are retained.
   UIColor *backgroundColor = self.backgroundColor;
   CGRect bounds = self.bounds;
-  CGFloat cornerRadius = self.cornerRadius;
+  CGFloat cornerRadius = _cornerRadius;
   BOOL clipsToBounds = self.clipsToBounds;
 
   CGRect frame;
@@ -236,22 +236,10 @@
 
       CGContextRef currentContext = UIGraphicsGetCurrentContext();
       UIImage *image = nil;
-        
-      ASDisplayNodeContextModifier willDisplayNodeContentWithRenderingContext = nil;
-      ASDisplayNodeContextModifier didDisplayNodeContentWithRenderingContext = nil;
-      if (currentContext) {
-        __instanceLock__.lock();
-        willDisplayNodeContentWithRenderingContext = _willDisplayNodeContentWithRenderingContext;
-        didDisplayNodeContentWithRenderingContext = _didDisplayNodeContentWithRenderingContext;
-        __instanceLock__.unlock();
-      }
-        
-
+      
       // For -display methods, we don't have a context, and thus will not call the _willDisplayNodeContentWithRenderingContext or
       // _didDisplayNodeContentWithRenderingContext blocks. It's up to the implementation of -display... to do what it needs.
-      if (willDisplayNodeContentWithRenderingContext != nil) {
-        willDisplayNodeContentWithRenderingContext(currentContext, drawParameters);
-      }
+      [self __willDisplayNodeContentWithRenderingContext:currentContext drawParameters:drawParameters];
       
       if (usesImageDisplay) {                                   // If we are using a display method, we'll get an image back directly.
         image = [self.class displayWithParameters:drawParameters isCancelled:isCancelledBlock];
@@ -259,9 +247,7 @@
         [self.class drawRect:bounds withParameters:drawParameters isCancelled:isCancelledBlock isRasterizing:rasterizing];
       }
       
-      if (didDisplayNodeContentWithRenderingContext != nil) {
-        didDisplayNodeContentWithRenderingContext(currentContext, drawParameters);
-      }
+      [self __didDisplayNodeContentWithRenderingContext:currentContext backgroundColor:backgroundColor drawParameters:drawParameters];
       
       if (shouldCreateGraphicsContext) {
         CHECK_CANCELLED_AND_RETURN_NIL( UIGraphicsEndImageContext(); );
@@ -328,15 +314,15 @@
 //{
 //}
 
-- (void)__willDisplayNodeContentWithRenderingContext:(CGContextRef)context
+- (void)__willDisplayNodeContentWithRenderingContext:(CGContextRef)context drawParameters:(id _Nullable)drawParameters
 {
-  
   if (context) {
-//    __instanceLock__.lock();
+    __instanceLock__.lock();
 //      ASCornerRoundingType cornerRoundingType = _cornerRoundingType;
 //      CGFloat cornerRadius = _cornerRadius;
-//    __instanceLock__.unlock();
-//    
+      ASDisplayNodeContextModifier willDisplayNodeContentWithRenderingContext = _willDisplayNodeContentWithRenderingContext;
+    __instanceLock__.unlock();
+//
 //    if (cornerRoundingType == ASCornerRoundingTypePrecomposited && cornerRadius > 0.0) {
 //      ASDisplayNodeAssert(context == UIGraphicsGetCurrentContext(), @"context is expected to be pushed on UIGraphics stack %@", self);
 //      // TODO: This clip path should be removed if we are rasterizing.
@@ -344,27 +330,28 @@
 //      [[UIBezierPath bezierPathWithRoundedRect:boundingBox cornerRadius:cornerRadius] addClip];
 //    }
     
-    if (_willDisplayNodeContentWithRenderingContext) {
-      _willDisplayNodeContentWithRenderingContext(context);
+    if (willDisplayNodeContentWithRenderingContext) {
+      willDisplayNodeContentWithRenderingContext(context, drawParameters);
     }
   }
 
 }
-- (void)__didDisplayNodeContentWithRenderingContext:(CGContextRef)context backgroundColor:(UIColor *)backgroundColor
+- (void)__didDisplayNodeContentWithRenderingContext:(CGContextRef)context backgroundColor:(UIColor *)backgroundColor drawParameters:(id _Nullable)drawParameters
 {
   if (context == NULL) {
     return;
   }
   
-  if (_didDisplayNodeContentWithRenderingContext) {
-    _didDisplayNodeContentWithRenderingContext(context);
-  }
-  
   __instanceLock__.lock();
-  ASCornerRoundingType cornerRoundingType = _cornerRoundingType;
-  CGFloat cornerRadius = _cornerRadius;
+    ASCornerRoundingType cornerRoundingType = _cornerRoundingType;
+    CGFloat cornerRadius = _cornerRadius;
   CGFloat contentsScale = _contentsScaleForDisplay;
+  ASDisplayNodeContextModifier didDisplayNodeContentWithRenderingContext = _didDisplayNodeContentWithRenderingContext;
   __instanceLock__.unlock();
+  
+  if (didDisplayNodeContentWithRenderingContext) {
+    didDisplayNodeContentWithRenderingContext(context, drawParameters);
+  }
   
   if (cornerRoundingType == ASCornerRoundingTypePrecomposited && cornerRadius > 0.0) {
     ASDisplayNodeAssert(context == UIGraphicsGetCurrentContext(), @"context is expected to be pushed on UIGraphics stack %@", self);

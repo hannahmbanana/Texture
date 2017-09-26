@@ -1,6 +1,9 @@
 ## master
 
 * Add your own contributions to the next release on the line below this with your name.
+- [ASDisplayNode] Add attributed versions of a11y label, hint and value. [#554](https://github.com/TextureGroup/Texture/pull/554) [Alexander Hüllmandel](https://github.com/fruitcoder)
+- [ASCornerRounding] Introduce .cornerRoundingType: CALayer, Precomposited, or Clip Corners. [Scott Goodson](https://github.com/appleguy) [#465](https://github.com/TextureGroup/Texture/pull/465)
+- [Yoga] Add insertYogaNode:atIndex: method. Improve handling of relayouts. [Scott Goodson](https://github.com/appleguy)
 - [ASCollectionNode] Add -isProcessingUpdates and -onDidFinishProcessingUpdates: APIs. [#522](https://github.com/TextureGroup/Texture/pull/522) [Scott Goodson](https://github.com/appleguy)
 - [Accessibility] Add .isAccessibilityContainer property, allowing automatic aggregation of children's a11y labels. [#468][Scott Goodson](https://github.com/appleguy)
 - [ASImageNode] Enabled .clipsToBounds by default, fixing the use of .cornerRadius and clipping of GIFs. [Scott Goodson](https://github.com/appleguy) [#466](https://github.com/TextureGroup/Texture/pull/466)
@@ -24,6 +27,7 @@
 - Add support for URLs on ASNetworkImageNode. [Garrett Moon](https://github.com/garrettmoon)
 - [ASImageNode] Always dealloc images in a background queue [Huy Nguyen](https://github.com/nguyenhuy) [#561](https://github.com/TextureGroup/Texture/pull/561)
 - Mark ASRunLoopQueue as drained if it contains only NULLs [Cesar Estebanez](https://github.com/cesteban) [#558](https://github.com/TextureGroup/Texture/pull/558)
+- Fix crashes caused by failing to unlock or destroy a static mutex while the app is being terminated [Huy Nguyen](https://github.com/nguyenhuy)
 
 ##2.4
 - Fix an issue where inserting/deleting sections could lead to inconsistent supplementary element behavior. [Adlai Holler](https://github.com/Adlai-Holler)

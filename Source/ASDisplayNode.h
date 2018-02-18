@@ -36,17 +36,17 @@ NS_ASSUME_NONNULL_BEGIN
 /**
  * UIView creation block. Used to create the backing view of a new display node.
  */
-typedef UIView * _Nonnull(^ASDisplayNodeViewBlock)();
+typedef UIView * _Nonnull(^ASDisplayNodeViewBlock)(void);
 
 /**
  * UIView creation block. Used to create the backing view of a new display node.
  */
-typedef UIViewController * _Nonnull(^ASDisplayNodeViewControllerBlock)();
+typedef UIViewController * _Nonnull(^ASDisplayNodeViewControllerBlock)(void);
 
 /**
  * CALayer creation block. Used to create the backing layer of a new display node.
  */
-typedef CALayer * _Nonnull(^ASDisplayNodeLayerBlock)();
+typedef CALayer * _Nonnull(^ASDisplayNodeLayerBlock)(void);
 
 /**
  * ASDisplayNode loaded callback block. This block is called BEFORE the -didLoad method and is always called on the main thread.
@@ -659,6 +659,12 @@ extern NSInteger const ASDefaultDrawingPriority;
  * @default ASCornerRoundingTypeDefaultSlowCALayer
  */
 @property (nonatomic, assign)           ASCornerRoundingType cornerRoundingType;  // default=Slow CALayer .cornerRadius (offscreen rendering)
+
+/** @abstract The radius to use when rounding corners of the ASDisplayNode.
+ *
+ * @discussion This property is thread-safe and should always be preferred over CALayer's cornerRadius property,
+ * even if corner rounding type is ASCornerRoundingTypeDefaultSlowCALayer.
+ */
 @property (nonatomic, assign)           CGFloat cornerRadius;                     // default=0.0
 
 @property (nonatomic, assign)           BOOL clipsToBounds;                    // default==NO
@@ -702,7 +708,7 @@ extern NSInteger const ASDefaultDrawingPriority;
  */
 @property (nonatomic, assign)           UIViewContentMode contentMode;         // default=UIViewContentModeScaleToFill
 @property (nonatomic, copy)             NSString *contentsGravity;             // Use .contentMode in preference when possible.
-@property (nonatomic, assign)           UISemanticContentAttribute semanticContentAttribute; // default=Unspecified
+@property (nonatomic, assign)           UISemanticContentAttribute semanticContentAttribute API_AVAILABLE(ios(9.0), tvos(9.0)); // default=Unspecified
 
 @property (nonatomic, nullable)         CGColorRef shadowColor;                // default=opaque rgb black
 @property (nonatomic, assign)           CGFloat shadowOpacity;                 // default=0.0
@@ -880,7 +886,7 @@ extern NSInteger const ASDefaultDrawingPriority;
 - (void)transitionLayoutWithSizeRange:(ASSizeRange)constrainedSize
                              animated:(BOOL)animated
                    shouldMeasureAsync:(BOOL)shouldMeasureAsync
-                measurementCompletion:(nullable void(^)())completion;
+                measurementCompletion:(nullable void(^)(void))completion;
 
 
 /**
@@ -897,7 +903,7 @@ extern NSInteger const ASDefaultDrawingPriority;
  */
 - (void)transitionLayoutWithAnimation:(BOOL)animated
                    shouldMeasureAsync:(BOOL)shouldMeasureAsync
-                measurementCompletion:(nullable void(^)())completion;
+                measurementCompletion:(nullable void(^)(void))completion;
 
 /**
  * @abstract Cancels all performing layout transitions. Can be called on any thread.

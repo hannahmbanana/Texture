@@ -2,8 +2,13 @@
 //  ASDisplayNode+Layout.mm
 //  Texture
 //
-//  Copyright (c) 2017-present, Pinterest, Inc.  All rights reserved.
-//  Licensed under the Apache License, Version 2.0 (the "License");
+//  Copyright (c) 2014-present, Facebook, Inc.  All rights reserved.
+//  This source code is licensed under the BSD-style license found in the
+//  LICENSE file in the /ASDK-Licenses directory of this source tree. An additional
+//  grant of patent rights can be found in the PATENTS file in the same directory.
+//
+//  Modifications to this file made after 4/13/2017 are: Copyright (c) through the present,
+//  Pinterest, Inc.  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
 //  You may obtain a copy of the License at
 //
@@ -85,6 +90,7 @@
     layout = [self calculateLayoutThatFits:constrainedSize
                           restrictedToSize:self.style.size
                       relativeToParentSize:parentSize];
+    as_log_verbose(ASLayoutLog(), "Established pending layout for %@ in %s", self, sel_getName(_cmd));
     _pendingDisplayNodeLayout = std::make_shared<ASDisplayNodeLayout>(layout, constrainedSize, parentSize, version);
     ASDisplayNodeAssertNotNil(layout, @"-[ASDisplayNode layoutThatFits:parentSize:] newly calculated layout should not be nil! %@", self);
   }
@@ -211,8 +217,9 @@ ASLayoutElementStyleExtensibilityForwarding
  * @discussion The size of a root node is determined by each subnode. Calling invalidateSize will let the root node know
  * that the intrinsic size of the receiver node is no longer valid and a resizing of the root node needs to happen.
  */
-- (void)_setNeedsLayoutFromAbove
+- (void)_u_setNeedsLayoutFromAbove
 {
+  ASDisplayNodeAssertLockUnownedByCurrentThread(__instanceLock);
   as_activity_create_for_scope("Set needs layout from above");
   ASDisplayNodeAssertThreadAffinity(self);
 
@@ -227,7 +234,7 @@ ASLayoutElementStyleExtensibilityForwarding
   
   if (supernode) {
     // Threading model requires that we unlock before calling a method on our parent.
-    [supernode _setNeedsLayoutFromAbove];
+    [supernode _u_setNeedsLayoutFromAbove];
   } else {
     // Let the root node method know that the size was invalidated
     [self _rootNodeDidInvalidateSize];
@@ -287,8 +294,10 @@ ASLayoutElementStyleExtensibilityForwarding
   }
 }
 
-- (void)_locked_measureNodeWithBoundsIfNecessary:(CGRect)bounds
+- (void)_u_measureNodeWithBoundsIfNecessary:(CGRect)bounds
 {
+  ASDisplayNodeAssertLockUnownedByCurrentThread(__instanceLock);
+  ASDN::MutexLocker l(__instanceLock__);
   // Check if we are a subnode in a layout transition.
   // In this case no measurement is needed as it's part of the layout transition
   if ([self _isLayoutTransitionInvalid]) {
@@ -296,15 +305,28 @@ ASLayoutElementStyleExtensibilityForwarding
   }
   
   CGSize boundsSizeForLayout = ASCeilSizeValues(bounds.size);
+  NSUInteger calculatedVersion = _calculatedDisplayNodeLayout->version;
 
-  // Prefer _pendingDisplayNodeLayout over _calculatedDisplayNodeLayout (if exists, it's the newest)
-  // If there is no _pending, check if _calculated is valid to reuse (avoiding recalculation below).
-  if (_pendingDisplayNodeLayout == nullptr || _pendingDisplayNodeLayout->version < _layoutVersion) {
-    if (_calculatedDisplayNodeLayout->version >= _layoutVersion
-        && (_calculatedDisplayNodeLayout->requestedLayoutFromAbove == YES
-            || CGSizeEqualToSize(_calculatedDisplayNodeLayout->layout.size, boundsSizeForLayout))) {
-      return;
+  // Prefer a newer and not yet applied _pendingDisplayNodeLayout over _calculatedDisplayNodeLayout
+  // If there is no such _pending, check if _calculated is valid to reuse (avoiding recalculation below).
+  BOOL pendingLayoutIsPreferred = NO;
+  if (_pendingDisplayNodeLayout != nullptr) {
+    NSUInteger pendingVersion = _pendingDisplayNodeLayout->version;
+    if (pendingVersion >= _layoutVersion) {
+      if (pendingVersion > calculatedVersion) {
+        pendingLayoutIsPreferred = YES; // Newer _pending
+      } else if (pendingVersion == calculatedVersion
+                 && !ASSizeRangeEqualToSizeRange(_pendingDisplayNodeLayout->constrainedSize,
+                                                 _calculatedDisplayNodeLayout->constrainedSize)) {
+                   pendingLayoutIsPreferred = YES; // _pending with a different constrained size
+                 }
     }
+  }
+  BOOL calculatedLayoutIsReusable = (calculatedVersion >= _layoutVersion
+                                     && (_calculatedDisplayNodeLayout->requestedLayoutFromAbove
+                                         || CGSizeEqualToSize(_calculatedDisplayNodeLayout->layout.size, boundsSizeForLayout)));
+  if (!pendingLayoutIsPreferred && calculatedLayoutIsReusable) {
+    return;
   }
   
   as_activity_create_for_scope("Update node layout for current bounds");
@@ -368,8 +390,10 @@ ASLayoutElementStyleExtensibilityForwarding
     // In this case, we need to detect that we've already asked to be resized to match this
     // particular ASLayout object, and shouldn't loop asking again unless we have a different ASLayout.
     nextLayout->requestedLayoutFromAbove = YES;
-    [self _setNeedsLayoutFromAbove];
-    // Update the layout's version here because _setNeedsLayoutFromAbove calls __setNeedsLayout which in turn increases _layoutVersion
+    __instanceLock__.unlock();
+    [self _u_setNeedsLayoutFromAbove];
+    __instanceLock__.lock();
+    // Update the layout's version here because _u_setNeedsLayoutFromAbove calls __setNeedsLayout which in turn increases _layoutVersion
     // Failing to do this will cause the layout to be invalid immediately 
     nextLayout->version = _layoutVersion;
   }
@@ -389,7 +413,7 @@ ASLayoutElementStyleExtensibilityForwarding
 
 - (ASSizeRange)_locked_constrainedSizeForLayoutPass
 {
-  // TODO: The logic in -_setNeedsLayoutFromAbove seems correct and doesn't use this method.
+  // TODO: The logic in -_u_setNeedsLayoutFromAbove seems correct and doesn't use this method.
   // logic seems correct.  For what case does -this method need to do the CGSizeEqual checks?
   // IF WE CAN REMOVE BOUNDS CHECKS HERE, THEN WE CAN ALSO REMOVE "REQUESTED FROM ABOVE" CHECK
   

@@ -99,6 +99,29 @@ __unused static NSString * _Nonnull NSStringFromASHierarchyState(ASHierarchyStat
 	return [NSString stringWithFormat:@"{ %@ }", [states componentsJoinedByString:@" | "]];
 }
 
+#define HIERARCHY_STATE_DELTA(Name) ({ \
+  if ((oldState & ASHierarchyState##Name) != (newState & ASHierarchyState##Name)) { \
+    [changes appendFormat:@"%c%s ", (newState & ASHierarchyState##Name ? '+' : '-'), #Name]; \
+  } \
+})
+
+__unused static NSString * _Nonnull NSStringFromASHierarchyStateChange(ASHierarchyState oldState, ASHierarchyState newState)
+{
+  if (oldState == newState) {
+    return @"{ }";
+  }
+
+  NSMutableString *changes = [NSMutableString stringWithString:@"{ "];
+  HIERARCHY_STATE_DELTA(Rasterized);
+  HIERARCHY_STATE_DELTA(RangeManaged);
+  HIERARCHY_STATE_DELTA(TransitioningSupernodes);
+  HIERARCHY_STATE_DELTA(LayoutPending);
+  [changes appendString:@"}"];
+  return changes;
+}
+
+#undef HIERARCHY_STATE_DELTA
+
 @interface ASDisplayNode () <ASDescriptionProvider, ASDebugDescriptionProvider>
 {
 @protected
@@ -117,6 +140,10 @@ __unused static NSString * _Nonnull NSStringFromASHierarchyState(ASHierarchyStat
 
 // delegate to inform of ASInterfaceState changes (used by ASNodeController)
 @property (nonatomic, weak) id<ASInterfaceStateDelegate> interfaceStateDelegate;
+
+// The -pendingInterfaceState holds the value that will be applied to -interfaceState by the
+// ASCATransactionQueue. If already applied, it matches -interfaceState. Thread-safe access.
+@property (nonatomic, readonly) ASInterfaceState pendingInterfaceState;
 
 // These methods are recursive, and either union or remove the provided interfaceState to all sub-elements.
 - (void)enterInterfaceState:(ASInterfaceState)interfaceState;
@@ -225,7 +252,7 @@ __unused static NSString * _Nonnull NSStringFromASHierarchyState(ASHierarchyStat
  * @discussion The size of a root node is determined by each subnode. Calling invalidateSize will let the root node know
  * that the intrinsic size of the receiver node is no longer valid and a resizing of the root node needs to happen.
  */
-- (void)_setNeedsLayoutFromAbove;
+- (void)_u_setNeedsLayoutFromAbove;
 
 /**
  * @abstract Subclass hook for nodes that are acting as root nodes. This method is called if one of the subnodes
@@ -237,7 +264,7 @@ __unused static NSString * _Nonnull NSStringFromASHierarchyState(ASHierarchyStat
  * This method will confirm that the layout is up to date (and update if needed).
  * Importantly, it will also APPLY the layout to all of our subnodes if (unless parent is transitioning).
  */
-- (void)_locked_measureNodeWithBoundsIfNecessary:(CGRect)bounds;
+- (void)_u_measureNodeWithBoundsIfNecessary:(CGRect)bounds;
 
 /**
  * Layout all of the subnodes based on the sublayouts
